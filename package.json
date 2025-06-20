@@ -1,0 +1,23 @@
+{
+  "name": "gen-nice-evm-wallets",
+  "version": "1.0.0",
+  "main": "wallet.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/wallet.ts",
+    "generate": "ts-node src/wallet.ts generate",
+    "list": "ts-node src/wallet.ts list"
+  },
+  "keywords": ["evm", "wallet", "generate", "beautiful", "wallets"],
+  "author": "Venticello",
+  "license": "MIT",
+  "description": "Generate beautiful EVM wallets",
+  "dependencies": {
+    "viem": "^2.31.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
