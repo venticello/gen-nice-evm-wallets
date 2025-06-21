@@ -169,12 +169,15 @@ function workerFunction() {
     let lastStatsTime = Date.now();
     let lastStatsAttempts = 0;
 
-    // Send statistics every 1000 attempts
+    // Send statistics to the main thread periodically.
     const sendStats = () => {
         const now = Date.now();
-        const timeDiff = (now - lastStatsTime) / BUFFER_SIZE;
+        const timeDiffMs = now - lastStatsTime;
         const attemptsDiff = attempts - lastStatsAttempts;
-        const keysPerSecond = attemptsDiff / timeDiff;
+
+        // Calculate keys per second. Multiply by 1000 to convert from ms to seconds.
+        // Avoid division by zero if the time difference is 0.
+        const keysPerSecond = timeDiffMs > 0 ? (attemptsDiff * 1000) / timeDiffMs : 0;
 
         parentPort!.postMessage({
             type: 'stats',
@@ -574,7 +577,9 @@ async function main() {
             pattern.niceStartEnd = true;
         }
 
-        console.log('PATTERN', pattern);
+        if (pattern) {
+            console.log(`🔎 Pattern: ${BeautifulWalletChecker.getPatternDescription(pattern)}`);
+        }
         const masterPassword = await manager.setMasterPassword();
         const generator = new BeautifulWalletGenerator();
         generator.setMasterPassword(masterPassword);
