@@ -285,7 +285,11 @@ class BeautifulWalletGenerator {
         // Creating workers
         for (let i = 0; i < workerCount; i++) {
             const worker = new Worker(__filename, {
-                workerData: { workerId: i, pattern }
+                workerData: { workerId: i, pattern },
+                // This tells Node.js to register ts-node in the worker thread before execution,
+                // allowing it to understand .ts files. This is a robust way to handle workers
+                // when running directly with ts-node.
+                execArgv: ['-r', 'ts-node/register']
             });
 
             worker.on('message', async (message: WorkerMessage) => {

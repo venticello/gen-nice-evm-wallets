@@ -22,13 +22,38 @@ A powerful, fast, and secure CLI tool for generating, storing, and managing "bea
     ```sh
     npm install
     ```
-The project uses `ts-node` to run TypeScript files directly, so no manual compilation step is needed.
 
-## 🚀 Usage
+The project uses `ts-node` to run TypeScript files directly, so no manual compilation step is needed for development.
+
+## 🚀 Running in Production (Recommended)
+
+For performance and stability, it is recommended to compile the TypeScript code to JavaScript and run the compiled output directly with Node.js.
+
+1.  **Build the project:**
+    This command compiles all `.ts` files into a `dist/` directory.
+    ```sh
+    npm run build
+    ```
+
+2.  **Run the compiled scripts:**
+    Use `node` to execute the scripts from the `dist` directory.
+
+    *   **To generate wallets:**
+        ```sh
+        node dist/wallet.js generate 10 --startsWith "BEEF"
+        ```
+    *   **To manage wallets:**
+        ```sh
+        node dist/wallet-manager.js list --file my_wallets.json
+        ```
+
+## 💻 Usage (Development)
 
 The tool is split into two main scripts:
 1.  `src/wallet.ts`: For generating new wallets.
 2.  `src/wallet-manager.ts`: For managing existing wallets in a storage file.
+
+The examples below use `ts-node` which is convenient for development and testing, but not recommended for production use.
 
 ### 1. Generating New Wallets
 
