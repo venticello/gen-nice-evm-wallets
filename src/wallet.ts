@@ -18,40 +18,78 @@ import {
 } from 'worker_threads';
 import { cpus } from 'os';
 import { BUFFER_SIZE, STORAGE_FILE } from './config';
+// @ts-expect-error: No type declarations for yargs in this project
+import yargs from 'yargs';
+// @ts-expect-error: No type declarations for yargs/helpers in this project
+import { hideBin } from 'yargs/helpers';
 
 
-
-
-
+/**
+ * Defines the pattern for a "beautiful" wallet address.
+ */
 interface WalletPattern {
+    /** The address should start with this string (e.g., "000"). */
     startsWith?: string;
+    /** The address should end with this string (e.g., "FFF"). */
     endsWith?: string;
+    /** The address should contain this substring. */
     contains?: string;
+    /** The address must contain at least this many repeating characters (e.g., 4 for "1111"). */
     repeatingChars?: number;
+    /** The address should have a "nice" start/end pattern (e.g., 4+4 or 3+5 identical characters). */
     niceStartEnd?: boolean;
 }
 
+/**
+ * Defines the structure of a message sent between the main thread and workers.
+ */
 interface WorkerMessage {
+    /** The type of the message. */
     type: 'found' | 'stats' | 'complete' | 'error';
+    /** The data payload of the message. */
     data?: any;
 }
 
+/**
+ * Defines the statistics reported by a single worker.
+ */
 interface WorkerStats {
+    /** The unique ID of the worker. */
     workerId: number;
+    /** The number of addresses attempted by the worker. */
     attempts: number;
+    /** The number of beautiful addresses found by the worker. */
     found: number;
+    /** The current generation speed in keys per second. */
     keysPerSecond: number;
 }
 
+/**
+ * Defines the aggregated statistics for the entire generation process.
+ */
 interface GenerationStats {
+    /** Total number of addresses attempted by all workers. */
     totalAttempts: number;
+    /** Total number of beautiful addresses found by all workers. */
     totalFound: number;
+    /** Combined generation speed of all workers in keys per second. */
     totalKeysPerSecond: number;
+    /** The total elapsed time in milliseconds. */
     elapsedTime: number;
+    /** An array of statistics for each individual worker. */
     workers: WorkerStats[];
 }
 
+/**
+ * A utility class to check if an EVM address matches a given beauty pattern.
+ */
 class BeautifulWalletChecker {
+    /**
+     * Checks if a given EVM address is "beautiful" based on a pattern.
+     * @param address The EVM address string to check.
+     * @param pattern The pattern to match against.
+     * @returns True if the address matches the pattern, false otherwise.
+     */
     static isBeautifulAddress(address: string, pattern?: WalletPattern): boolean {
         const addr = address.toLowerCase();
         if (!pattern || pattern?.niceStartEnd) {
@@ -87,25 +125,42 @@ class BeautifulWalletChecker {
         return true;
     }
 
+    /**
+     * Generates a human-readable description of a wallet pattern.
+     * @param pattern The pattern to describe.
+     * @returns A string describing the pattern.
+     */
     static getPatternDescription(pattern: WalletPattern): string {
-        let text_pattern = '';
+        const descriptions: string[] = [];
         if (pattern.startsWith) {
-            text_pattern = `starts with ${pattern.startsWith}`;
+            descriptions.push(`starts with "${pattern.startsWith}"`);
         }
         if (pattern.endsWith) {
-            text_pattern += `ends with ${pattern.endsWith}`;
+            descriptions.push(`ends with "${pattern.endsWith}"`);
         }
         if (pattern.contains) {
-            text_pattern += `contains ${pattern.contains}`;
+            descriptions.push(`contains "${pattern.contains}"`);
         }
-        if (text_pattern === '')
-            return 'nice start...end pattern';
-        else return text_pattern;
+        if (pattern.repeatingChars) {
+            descriptions.push(`repeating chars >= ${pattern.repeatingChars}`);
+        }
+
+        if (descriptions.length > 0) {
+            return descriptions.join(', ');
+        }
+        
+        if (pattern.niceStartEnd) {
+            return 'nice start/end (e.g. 4+4 or 3+5 equal chars)';
+        }
+
+        return 'default pattern';
     }
 
 }
 
-// Worker code for wallet generation
+/**
+ * The function executed by each worker thread to generate and check wallets.
+ */
 function workerFunction() {
     if (!parentPort || !workerData) return;
 
@@ -172,6 +227,9 @@ function workerFunction() {
     generateLoop();
 }
 
+/**
+ * Orchestrates the multi-threaded generation of beautiful EVM wallets.
+ */
 class BeautifulWalletGenerator {
     private workers: Worker[] = [];
     private stats: GenerationStats = {
@@ -185,13 +243,22 @@ class BeautifulWalletGenerator {
     private statsInterval?: NodeJS.Timeout;
     private masterPassword: string = '';
     private storageFile: string = STORAGE_FILE;
+    private searchPattern?: WalletPattern;
 
+    /**
+     * Starts the wallet generation process.
+     * @param count The target number of wallets to find.
+     * @param pattern The pattern to match.
+     * @param numWorkers The number of worker threads to use. Defaults to CPU cores - 1.
+     * @param storageFile The file to save the found wallets to.
+     */
     async generate(
         count: number = 1,
         pattern?: WalletPattern,
         numWorkers?: number,
         storageFile?: string
     ): Promise<void> {
+        this.searchPattern = pattern;
         if (storageFile) {
             this.storageFile = storageFile;
         }
@@ -256,6 +323,11 @@ class BeautifulWalletGenerator {
         });
     }
 
+    /**
+     * Handles messages received from worker threads.
+     * @param message The message from the worker.
+     * @param targetCount The total number of wallets to find.
+     */
     private async handleWorkerMessage(message: WorkerMessage, targetCount: number): Promise<void> {
         switch (message.type) {
             case 'found':
@@ -277,6 +349,10 @@ class BeautifulWalletGenerator {
         }
     }
 
+    /**
+     * Encrypts and saves a found wallet to the storage file immediately.
+     * @param wallet The wallet data to save, including address, private key, and pattern.
+     */
     private async saveWalletImmediately(wallet: { address: string; privateKey: string; pattern: string }): Promise<void> {
         try {
             // Loading existing storage
@@ -312,12 +388,18 @@ class BeautifulWalletGenerator {
         }
     }
 
+    /**
+     * Updates the total generation statistics based on worker reports.
+     */
     private updateTotalStats(): void {
         this.stats.totalAttempts = this.stats.workers.reduce((sum, w) => sum + w.attempts, 0);
         this.stats.totalKeysPerSecond = this.stats.workers.reduce((sum, w) => sum + w.keysPerSecond, 0);
         this.stats.elapsedTime = Date.now() - this.startTime;
     }
 
+    /**
+     * Starts the interval for displaying real-time statistics to the console.
+     */
     private startStatsDisplay(): void {
         this.statsInterval = setInterval(() => {
             this.updateTotalStats();
@@ -325,10 +407,16 @@ class BeautifulWalletGenerator {
         }, 2000);
     }
 
+    /**
+     * Renders and displays the real-time statistics table in the console.
+     */
     private displayStats(): void {
         // Clearing screen and displaying statistics
         process.stdout.write('\x1B[2J\x1B[0f');
         console.log('🔍 SEARCHING FOR BEAUTIFUL ADDRESSES - REAL-TIME STATISTICS\n');
+        if (this.searchPattern) {
+            console.log(`🔎 Pattern: ${BeautifulWalletChecker.getPatternDescription(this.searchPattern)}`);
+        }
         console.log(`⏱️ Working time: ${this.formatTime(this.stats.elapsedTime)}`);
         console.log(`🎯 Found: ${this.stats.totalFound} addresses`);
         console.log(`🔢 Total attempts: ${this.stats.totalAttempts.toLocaleString()}`);
@@ -336,19 +424,44 @@ class BeautifulWalletGenerator {
         console.log(`📈 Efficiency: ${this.stats.totalAttempts > 0 ? ((this.stats.totalFound / this.stats.totalAttempts) * 100).toFixed(6) : '0.000000'}%\n`);
 
         console.log('👷 WORKER STATISTICS:');
-        console.log('ID  | Attempts    | Found | Keys/sec');
-        console.log('----|-------------|-------|----------');
+
+        const colWidths = {
+            id: 4,
+            attempts: 13,
+            found: 7,
+            keysPerSec: 10,
+        };
+
+        const header = [
+            'ID'.padStart(colWidths.id),
+            'Attempts'.padStart(colWidths.attempts),
+            'Found'.padStart(colWidths.found),
+            'Keys/sec'.padStart(colWidths.keysPerSec),
+        ].join(' | ');
+
+        const separator = Object.values(colWidths)
+            .map(w => '-'.repeat(w))
+            .join('-|-');
+        
+        console.log(header);
+        console.log(separator);
 
         this.stats.workers.forEach(worker => {
-            console.log(
-                `${worker.workerId.toString().padStart(2)}  ` +
-                `| ${worker.attempts.toLocaleString().padStart(10)} ` +
-                `| ${worker.found.toString().padStart(7)} ` +
-                `| ${worker.keysPerSecond.toLocaleString().padStart(8)}`
-            );
+            const row = [
+                worker.workerId.toString().padStart(colWidths.id),
+                worker.attempts.toLocaleString().padStart(colWidths.attempts),
+                worker.found.toString().padStart(colWidths.found),
+                worker.keysPerSecond.toLocaleString().padStart(colWidths.keysPerSec),
+            ].join(' | ');
+            console.log(row);
         });
     }
 
+    /**
+     * Formats a duration in milliseconds into a human-readable string (e.g., "1h 5m 10s").
+     * @param ms The duration in milliseconds.
+     * @returns The formatted time string.
+     */
     private formatTime(ms: number): string {
         const seconds = Math.floor(ms / 1000);
         const minutes = Math.floor(seconds / 60);
@@ -363,10 +476,17 @@ class BeautifulWalletGenerator {
         }
     }
 
+    /**
+     * Sets the master password for encrypting wallets.
+     * @param password The master password.
+     */
     setMasterPassword(password: string): void {
         this.masterPassword = password;
     }
 
+    /**
+     * Terminates all worker threads and cleans up resources.
+     */
     private cleanup(): void {
         if (this.statsInterval) {
             clearInterval(this.statsInterval);
@@ -382,7 +502,10 @@ class BeautifulWalletGenerator {
 
 
 
-// CLI interface
+/**
+ * The main entry point for the CLI application.
+ * Parses arguments and initiates wallet generation.
+ */
 async function main() {
     // Check if code is running as a worker
     if (!isMainThread) {
@@ -390,110 +513,70 @@ async function main() {
         return;
     }
 
+    // Using yargs for powerful CLI argument parsing
+    const argv = yargs(hideBin(process.argv))
+        .scriptName("wallet")
+        .usage('Usage: $0 generate <count> [options]')
+        .command('generate <count>', 'Generate beautiful wallets', (y: any) => {
+            return y
+                .positional('count', {
+                    describe: 'Number of wallets to generate',
+                    type: 'number',
+                    demandOption: true,
+                })
+                .option('workers', {
+                    type: 'number',
+                    describe: 'Number of workers (default: CPU cores - 1)',
+                })
+                .option('out', {
+                    type: 'string',
+                    describe: 'Output file for wallets',
+                    default: STORAGE_FILE,
+                })
+                .option('startsWith', {
+                    type: 'string',
+                    describe: 'Address must start with these characters (e.g., "000")',
+                })
+                .option('endsWith', {
+                    type: 'string',
+                    describe: 'Address must end with these characters (e.g., "FFF")',
+                })
+                .option('contains', {
+                    type: 'string',
+                    describe: 'Address must contain this substring',
+                })
+                .option('repeating', {
+                    type: 'number',
+                    describe: 'Address must contain N repeating characters (e.g., 4 for "1111")',
+                });
+        })
+        .demandCommand(1, 'The "generate" command is required.')
+        .help()
+        .alias('h', 'help')
+        .strict()
+        .parseSync();
+
     const manager = new WalletManager();
 
     try {
-        const args = process.argv.slice(2);
+        const { count, workers, out, startsWith, endsWith, contains, repeating } = argv;
 
-        if (args.length === 0) {
-            console.log(`
-🌟 EVM Beautiful Wallet Generator & Manager (Multithreaded version)
+        const pattern: WalletPattern = {};
+        if (startsWith) pattern.startsWith = startsWith as string;
+        if (endsWith) pattern.endsWith = endsWith as string;
+        if (contains) pattern.contains = contains as string;
+        if (repeating) pattern.repeatingChars = repeating as number;
 
-Commands:
-  generate <count> [options]    - Generate beautiful wallets
-  list                         - List saved wallets  
-  get <index>                  - Get private key
-  export <index> [file]        - Export wallet
-  
-Generation options:
-  --workers=N                  - Number of workers (default: CPU cores - 1)
-  --startsWith=XXX            - Starts with characters
-  --endsWith=XXX              - Ends with characters
-  --contains=XXX              - Contains substring
-  --repeating=N               - Repeating characters (minimum N in a row)
-  --out=FILENAME              - Output file for wallets (default: encrypted_wallets.json)
-  
-Examples:
-  node wallet.js generate 5
-  node wallet.js generate 10 --workers=8 --startsWith=000
-  node wallet.js generate 3 --endsWith=999 --contains=1234
-  node wallet.js list
-  node wallet.js get 1
-      `);
-            return;
+        if (Object.keys(pattern).length === 0) {
+            pattern.niceStartEnd = true;
         }
 
-        const command = args[0];
+        console.log('PATTERN', pattern);
+        const masterPassword = await manager.setMasterPassword();
+        const generator = new BeautifulWalletGenerator();
+        generator.setMasterPassword(masterPassword);
 
-        switch (command) {
-            case 'generate': {
-                const count = parseInt(args[1]) || 1;
-                let numWorkers: number | undefined;
-                let outFile: string | undefined;
-    
-                // Parsing pattern and options
-                let pattern: WalletPattern = {};
-                for (let i = 2; i < args.length; i++) {
-                    const arg = args[i];
-                    
-                    if (arg.startsWith('--workers=')){
-                        numWorkers = parseInt(arg.split('=')[1]);
-                    }
-                    if (arg.startsWith('--out=')) {
-                        outFile = arg.split('=')[1];
-                    }
-                        if (arg.startsWith('--startsWith=')) {
-                            pattern.startsWith = arg.split('=')[1];
-                        }
-                        if (arg.startsWith('--endsWith=')) {
-                            pattern.endsWith = arg.split('=')[1];
-                        }
-                        if (arg.startsWith('--contains=')) {
-                            pattern.contains = arg.split('=')[1];
-                        }
-                        if (arg.startsWith('--repeating=')) {
-                            pattern.repeatingChars = parseInt(arg.split('=')[1]);
-                        }
-                    
-                }
-                if (!(pattern.contains || pattern.startsWith || pattern.endsWith || pattern.repeatingChars)){
-                    pattern.niceStartEnd = true;
-                }
-                console.log('PATTERN', pattern);
-                const masterPassword = await manager.setMasterPassword();
-                const generator = new BeautifulWalletGenerator();
-                generator.setMasterPassword(masterPassword);
-
-                await generator.generate(count, pattern, numWorkers, outFile);
-                break;
-            }
-
-            case 'list': {
-                await manager.listCLI();
-                break;
-            }
-            case 'get': {
-                const index = parseInt(args[1]);
-                if (!index) {
-                    throw new Error('❌ Specify wallet number');
-                }
-                await manager.getCLI(index);
-                break;
-            }
-            case 'export': {
-                const index = parseInt(args[1]);
-                if (!index) {
-                    throw new Error('❌ Specify wallet number');
-                }
-                const outputFile = args[2];
-                await manager.exportCLI(index, outputFile);
-                break;
-            }
-
-
-            default:
-                console.log('❌ Unknown command. Use without parameters for help.');
-        }
+        await generator.generate(count as number, pattern, workers, out);
 
     } catch (error) {
         console.error(error instanceof Error ? error.message : 'Unknown error');

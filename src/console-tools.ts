@@ -1,3 +1,9 @@
+/**
+ * Prompts the user for a password in the console without echoing the characters.
+ * Handles Backspace, Enter, and Ctrl+C. Masks input with asterisks.
+ * @param prompt The message to display to the user.
+ * @returns A promise that resolves with the entered password string.
+ */
 export async function getPassword(prompt: string): Promise<string> {
     return new Promise((resolve) => {
       process.stdout.write(prompt);
@@ -45,6 +51,12 @@ export async function getPassword(prompt: string): Promise<string> {
     });
   }
   
+/**
+ * Checks if a character is printable and should be included in the password.
+ * This is a simple check that includes ASCII, Cyrillic, and some Latin extensions.
+ * @param char The character to check.
+ * @returns True if the character is considered printable, false otherwise.
+ */
 function isPrintableChar(char: string): boolean {
     const code = char.charCodeAt(0);
     
