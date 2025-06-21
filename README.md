@@ -1,102 +1,105 @@
-# EVM Beautiful Wallet Generator & Manager
+# 💎 EVM Beautiful Wallet Generator & Manager
 
-A secure, multi-threaded CLI tool for generating, storing, and managing beautiful EVM (Ethereum) wallets.
+A powerful, fast, and secure CLI tool for generating, storing, and managing "beautiful" EVM (Ethereum, Base, Polygon, etc.) wallet addresses with custom patterns. Built with Node.js and TypeScript, using multi-threading for maximum performance.
 
-## Features
-- Generate beautiful EVM wallets with custom patterns
-- Secure encrypted storage with master password
-- List, export, and retrieve private keys via CLI
-- Support for custom wallet storage files
+## ✨ Features
 
-## Installation
+- **High-Speed Generation**: Utilizes all available CPU cores for parallel wallet generation.
+- **Custom Patterns**: Find addresses that start with, end with, or contain specific characters, or have repeating digits.
+- **Secure Storage**: All wallets are encrypted with a master password using `AES-256-GCM` and `scrypt`.
+- **Wallet Management**: A separate CLI for listing wallets, viewing addresses, and securely exporting private keys.
+- **Real-Time Stats**: Live dashboard in your terminal showing generation speed, total attempts, and worker statistics.
+
+## ⚙️ Installation
+
+1.  Clone the repository:
+    ```sh
+    git clone https://github.com/venticello/gen-nice-evm-wallets.git
+    cd gen-nice-evm-wallets
+    ```
+
+2.  Install dependencies:
+    ```sh
+    npm install
+    ```
+The project uses `ts-node` to run TypeScript files directly, so no manual compilation step is needed.
+
+## 🚀 Usage
+
+The tool is split into two main scripts:
+1.  `src/wallet.ts`: For generating new wallets.
+2.  `src/wallet-manager.ts`: For managing existing wallets in a storage file.
+
+### 1. Generating New Wallets
+
+You can run the generator using the `npm run generate` script or by calling `ts-node` directly. When you first run it, you will be prompted to create a secure master password for your wallet file.
+
+**Basic command structure:**
 ```sh
-npm install
+ts-node src/wallet.ts generate <count> [options]
 ```
 
-If you use TypeScript and want type support for yargs:
+**Example: Generate 5 wallets with the default "beauty" pattern**
+This pattern looks for addresses with repeating characters at the start and end (e.g., `0x1111...ffff`).
 ```sh
-npm install --save-dev @types/yargs
+ts-node src/wallet.ts generate 5
 ```
 
-## Usage
-### Generate wallets
+**Example: Find 1 wallet that starts with "BEEF" and save it to a custom file**
 ```sh
-node wallet.js generate 5 --out=mywallets.json --startsWith=000
+ts-node src/wallet.ts generate 1 --startsWith BEEF --out my_special_wallets.json
 ```
 
-#### Generation options:
-```
---workers=N                 - Number of workers (default: CPU cores - 1)
---out=FILENAME              - Output file for wallets (default: encrypted_wallets.json)
-
-# patterns
---startsWith=XXX            - Starts with characters
---endsWith=XXX              - Ends with characters
---contains=XXX              - Contains substring
---repeating=N               - Repeating characters (minimum N in a row)
-
-```
-
-#### Default pattern 
-1. Checks for addresses with:
-- **Either** 3 consecutive identical characters starting at position 2 **OR** 3 consecutive identical characters starting at position 3
-- **AND** 5 consecutive identical characters at the end of the address
-
-    Examples that would match:
-    - `0x111abc...22222` (3 at start + 5 at end)
-    - `0xd111bc...33333` (3 at start + 5 at end)
-
-2. Checks for addresses with:
-- **Exactly** 4 consecutive identical characters starting at position 2 (after "0x")
-- **AND** 4 consecutive identical characters at the end
-
-    Examples that would match:
-    - `0x1111ab...2222` (4 at start + 4 at end)
-    - `0xaaaabd...cccc` (4 at start + 4 at end)
-
-
-### List wallets
+**Getting Help**
+To see all available generation options, use the `--help` flag:
 ```sh
-node wallet-manager.js list --file=mywallets.json
+ts-node src/wallet.ts generate --help
 ```
 
-### Get private key
+### 2. Managing Existing Wallets
+
+The wallet manager is a separate tool for interacting with your `encrypted_wallets.json` file (or any other file you specified with `--out`).
+
+**Basic command structure:**
 ```sh
-node wallet-manager.js get 1 --file=mywallets.json
+ts-node src/wallet-manager.ts <command> [options]
 ```
 
-### Export wallet
+**Example: List all wallets in a specific file**
+You will be prompted for your master password to decrypt the data for viewing.
 ```sh
-node wallet-manager.js export 2 exported_wallet.json --file=mywallets.json
+ts-node src/wallet-manager.ts list --file my_special_wallets.json
 ```
 
-## Wallet Storage File Structure
-```json
-{
-  "wallets": [
-    {
-      "address": "0x...",
-      "encryptedPrivateKey": "...",
-      "salt": "...",
-      "iv": "...",
-      "createdAt": "2024-06-01T12:00:00.000Z",
-      "pattern": "starts with 000"
-    }
-  ],
-  "version": "1.0"
-}
+**Example: Get the private key for a specific wallet (by its ID)**
+The ID is the number shown in the `list` command.
+```sh
+ts-node src/wallet-manager.ts get 1 --file my_special_wallets.json
 ```
 
-## Security Notes
-- **Never share your master password or unencrypted private keys!**
-- The exported wallet file contains the private key in plain text.
-- Always use a strong, unique master password.
+**Example: Export a single wallet (unencrypted) to a new file**
+```sh
+ts-node src/wallet-manager.ts export 1 --outFile exported_beef_wallet.json --file my_special_wallets.json
+```
 
-## Contributing
-Pull requests and issues are welcome!
+**Getting Help**
+To see all available management commands and options, use the `--help` flag:
+```sh
+ts-node src/wallet-manager.ts --help
+```
 
-If you like the app and want to support
-0x000D1f59A429D43Adbdf7fA94Df7470D16cDDDDD
+## 🔒 Security Notice
 
-## License
-MIT 
+-   **Master Password is Critical**: Your master password is the only way to decrypt your wallets. If you lose it, your funds are permanently inaccessible. There is no recovery mechanism.
+-   **Private Keys**: Never share your private keys or your master password. Anyone with access to them has full control over your funds.
+-   **Exported Files are Unencrypted**: The `export` command saves the wallet (including the private key) in plain text. Handle this file with extreme care and delete it securely after use.
+
+## 💖 Support
+
+If you find this tool useful, consider supporting its development:
+
+**EVM Address**: `0x000D1f59A429D43Adbdf7fA94Df7470D16cDDDDD`
+
+## ⚖️ License
+
+[MIT](LICENSE) 

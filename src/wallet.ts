@@ -13,8 +13,7 @@ import {
     Worker,
     isMainThread,
     parentPort,
-    workerData,
-    MessageChannel
+    workerData
 } from 'worker_threads';
 import { cpus } from 'os';
 import { BUFFER_SIZE, STORAGE_FILE } from './config';
@@ -76,7 +75,7 @@ interface GenerationStats {
     totalKeysPerSecond: number;
     /** The total elapsed time in milliseconds. */
     elapsedTime: number;
-    /** An array of statistics for each individual worker. */
+    /** An array of statistics for each worker. */
     workers: WorkerStats[];
 }
 
